@@ -1,2 +1,12 @@
 - hosts: localhost
   connection: local
+  tags:
+  - provision
+  tasks:
+  - ec2:
+      instance_type: t2.micro
+      instance_tags:
+        Name: kubernetes-master
+      count_tag: Name
+      exact_count: 1
+      image: ami-1d9aa07b
