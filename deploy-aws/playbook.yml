@@ -1,5 +1,30 @@
 ---
 
+- name: "ensure security group exists"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+  - global_vars.yml
+  tags:
+  - provision
+  tasks:
+  - ec2_group:
+      name: csg-kubernetes-cluster
+      description: "security group used by all machines in kubernetes cluster"
+      region: "{{ aws_region }}"
+      state: present
+      rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+      - proto: icmp
+        from_port: 8 # icmp type, -1 = any type
+        to_port:  -1 # icmp subtype, -1 = any subtype
+        cidr_ip: 0.0.0.0/0
+
+
 - hosts: localhost
   connection: local
   gather_facts: false
@@ -18,6 +43,7 @@
       exact_count: 1
       image: "{{ per_region[aws_region]['ami'] }}"
       key_name: kubernetes-cluster
+      group: csg-kubernetes-cluster
   - ec2:
       region: "{{ aws_region }}"
       instance_type: t2.nano
@@ -28,3 +54,15 @@
       exact_count: 2
       image: "{{ per_region[aws_region]['ami'] }}"
       key_name: kubernetes-cluster
+      group: csg-kubernetes-cluster
+
+
+- hosts: tag_Name_kubernetes_master:tag_Name_kubernetes_slave
+  gather_facts: false
+  vars_files:
+  - global_vars.yml
+  tags:
+  - deploy
+  tasks:
+  - name: "install python 2"
+    raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
