@@ -1,3 +1,4 @@
 .idea/
 *.pyc
 *.retry
+deploy-aws/roles/mrlesmithjr.openvswitch/

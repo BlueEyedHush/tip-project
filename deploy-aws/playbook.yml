@@ -59,6 +59,8 @@
 
 - hosts: tag_Name_kubernetes_master:tag_Name_kubernetes_slave
   gather_facts: false
+  become: true
+  become_method: sudo
   vars_files:
   - global_vars.yml
   tags:
