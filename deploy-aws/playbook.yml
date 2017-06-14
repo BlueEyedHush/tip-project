@@ -1,23 +1,30 @@
+---
+
 - hosts: localhost
   connection: local
+  gather_facts: false
+  vars_files:
+  - global_vars.yml
   tags:
   - provision
   tasks:
   - ec2:
-      region: us-west-2
+      region: "{{ aws_region }}"
       instance_type: t2.micro
       instance_tags:
         Name: kubernetes-master
-      count_tag: Name
+      count_tag:
+        Name: kubernetes-master
       exact_count: 1
-      image: ami-74871414
+      image: "{{ per_region[aws_region]['ami'] }}"
       key_name: kubernetes-cluster
   - ec2:
-      region: us-west-2
-      instance_type: t2.micro
+      region: "{{ aws_region }}"
+      instance_type: t2.nano
       instance_tags:
         Name: kubernetes-slave
-      count_tag: Name
-      exact_count: 3
-      image: ami-74871414
+      count_tag:
+        Name: kubernetes-slave
+      exact_count: 2
+      image: "{{ per_region[aws_region]['ami'] }}"
       key_name: kubernetes-cluster

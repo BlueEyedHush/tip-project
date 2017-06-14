@@ -1,0 +1,9 @@
+---
+
+aws_region: "us-east-1"
+
+per_region:
+  us-west-2:
+    ami: "ami-74871414"
+  us-east-1:
+    ami: "ami-a025aeb6"
