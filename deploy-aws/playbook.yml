@@ -4,9 +4,20 @@
   - provision
   tasks:
   - ec2:
+      region: us-west-2
       instance_type: t2.micro
       instance_tags:
         Name: kubernetes-master
       count_tag: Name
       exact_count: 1
-      image: ami-1d9aa07b
+      image: ami-74871414
+      key_name: kubernetes-cluster
+  - ec2:
+      region: us-west-2
+      instance_type: t2.micro
+      instance_tags:
+        Name: kubernetes-slave
+      count_tag: Name
+      exact_count: 3
+      image: ami-74871414
+      key_name: kubernetes-cluster
