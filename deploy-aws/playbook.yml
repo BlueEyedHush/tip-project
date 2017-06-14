@@ -68,3 +68,16 @@
   tasks:
   - name: "install python 2"
     raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+
+- hosts: tag_Name_kubernetes_master:tag_Name_kubernetes_slave
+  become: true
+  become_method: sudo
+  vars_files:
+  - global_vars.yml
+  tags:
+  - deploy
+  tasks:
+  - name: "install openvswitch-switch"
+    apt:
+      name: openvswitch-switch
+      state: present
