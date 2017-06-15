@@ -68,8 +68,13 @@
   tasks:
   - name: "install python 2"
     raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+  - name: "generate local ip for OVN"
+    set_fact:
+      local_ip: "10.0.0.{{ 255 |random(start=1,seed=inventory_hostname) }}"
+  - debug:
+      msg: "Local IP = {{ local_ip }}"
 
-- hosts: tag_Name_kubernetes_master:tag_Name_kubernetes_slave
+- hosts: tag_Name_kubernetes_master
   become: true
   become_method: sudo
   vars_files:
@@ -77,7 +82,55 @@
   tags:
   - deploy
   tasks:
+  # http://docs.openvswitch.org/en/latest/intro/install/distributions/#debian
   - name: "install openvswitch-switch"
     apt:
       name: openvswitch-switch
       state: present
+  - name: "install ovn-common"
+    apt:
+      name: ovn-common
+      state: present
+  - name: "install ovn-central"
+    apt:
+      name: ovn-central
+      state: present
+  # https://github.com/openvswitch/ovn-kubernetes#system-initialization
+  # northd seems to be already up after package installation, but better safe than sorry
+  - name: "start northd"
+    shell: "/usr/share/openvswitch/scripts/ovn-ctl start_northd"
+
+- hosts: tag_Name_kubernetes_slave
+  become: true
+  become_method: sudo
+  vars_files:
+  - global_vars.yml
+  tags:
+  - deploy
+  tasks:
+  # http://docs.openvswitch.org/en/latest/intro/install/distributions/#debian
+  - set_fact:
+      central_ip: "{{ groups['tag_Name_kubernetes_master'][0] }}"
+  - debug:
+      msg: "Central IP: {{ central_ip }}"
+  - name: "install openvswitch-switch"
+    apt:
+      name: openvswitch-switch
+      state: present
+  - name: "install ovn-common"
+    apt:
+      name: ovn-common
+      state: present
+  - name: "install ovn-host"
+    apt:
+      name: ovn-host
+      state: present
+  # https://github.com/openvswitch/ovn-kubernetes#system-initialization
+  - name: "configure host OVN"
+    shell: >
+      ovs-vsctl set Open_vSwitch . external_ids:ovn-remote="tcp:{{ central_ip }}:6642"
+      external_ids:ovn-nb="tcp:{{ central_ip }}:6641"
+      external_ids:ovn-encap-ip={{ local_ip }}
+      external_ids:ovn-encap-type=geneve
+  - name: "start OVN controller"
+    shell: /usr/share/openvswitch/scripts/ovn-ctl start_controller
