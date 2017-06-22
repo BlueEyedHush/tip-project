@@ -110,18 +110,27 @@
   - name: "Set the k8s API server address in the OVS database"
     shell: ovs-vsctl set Open_vSwitch . external_ids:k8s-api-server="127.0.0.1:8080"
   - name: "clone ovn-kubernetes repository"
-    shell: git clone https://github.com/openvswitch/ovn-kubernetes . || git pull
+    git:
+      repo: "https://github.com/openvswitch/ovn-kubernetes"
+      dest: "ovn-k"
+      force: true
   - name: "install requirements for ovn-kubernetes"
     shell: pip install .
+    args:
+      chdir: "ovn-k"
   - name: "initialize ovn master"
     shell: >
       ovn-k8s-overlay master-init
       --cluster-ip-subnet="10.0.0.0/24"
       --master-switch-subnet="10.0.1.0/24"
       --node-name="{{ ansible_hostname }}"
+    args:
+      chdir: "ovn-k"
   - name: "start watchers"
     shell: >
       ovn-k8s-watcher --overlay --pidfile --log-file -vfile:info -vconsole:emer --detach
+    args:
+      chdir: "ovn-k"
 
 - hosts: tag_Name_kubernetes_slave
   become: true
@@ -169,19 +178,28 @@
     shell: >
       ovs-vsctl set Open_vSwitch . external_ids:k8s-api-server={{ central_ip }}:8080
   - name: "clone ovn-kubernetes repository"
-    shell: git clone https://github.com/openvswitch/ovn-kubernetes . || git pull
+    git:
+      repo: "https://github.com/openvswitch/ovn-kubernetes"
+      dest: "ovn-k"
+      force: true
   - name: "install requirements for ovn-kubernetes"
     shell: pip install .
+    args:
+      chdir: "ovn-k"
   - name: "initialize ovn minion"
     shell: >
       ovn-k8s-overlay minion-init
       --cluster-ip-subnet="10.0.0.0/24"
       --minion-switch-subnet="10.0.2.0/24"
       --node-name={{ ansible_hostname }}
+    args:
+      chdir: "ovn-k"
   - name: ""
     shell: >
       ovn-k8s-util nics-to-bridge eth0 &&
       dhclient breth0
+    args:
+      chdir: "ovn-k"
   - name: "configure gateway"
     shell: >
       ovn-k8s-overlay gateway-init
@@ -190,6 +208,10 @@
       --physical-ip {{ ec2_ip_address }}
       --node-name={{ ansible_hostname }}
       --default-gw "igw-aaca55cc"
+    args:
+      chdir: "ovn-k"
   - name: "demux gateway traffic"
     shell: >
       ovn-k8s-gateway-helper --physical-bridge=breth0 --physical-interface=eth0 --pidfile --detach
+    args:
+      chdir: "ovn-k"
