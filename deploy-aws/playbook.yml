@@ -84,7 +84,7 @@
       nid: "{{ 255 |random(start=1,seed=inventory_hostname) }}"
   - name: "set local ip for OVN"
     set_fact:
-      subnet_ip: "10.0.{{ nid }}.0/16"
+      subnet_ip: "10.0.{{ nid }}.0/24"
       local_ip: "10.0.{{ nid }}.254"
   - debug:
       msg: "Local IP = {{ local_ip }}"
@@ -147,11 +147,6 @@
       --cluster-ip-subnet="10.0.0.0/16"
       --master-switch-subnet="{{ subnet_ip }}"
       --node-name="{{ ansible_hostname }}"
-    args:
-      chdir: "ovn-k"
-  - name: "start watchers"
-    shell: >
-      ovn-k8s-watcher --overlay --pidfile --log-file -vfile:info -vconsole:emer --detach
     args:
       chdir: "ovn-k"
 
@@ -256,6 +251,15 @@
     args:
       chdir: "kubernetes/server/bin"
 
+  # start ovn watcher
+  - name: "start watchers"
+    async: 45
+    poll: 0
+    shell: >
+      ovn-k8s-watcher --overlay --pidfile --log-file -vfile:info -vconsole:emer --detach
+    args:
+      chdir: "ovn-k"
+
 
 
 
@@ -329,27 +333,29 @@
       --node-name={{ ansible_hostname }}
     args:
       chdir: "ovn-k"
-  - name: ""
-    shell: >
-      ovn-k8s-util nics-to-bridge eth0 &&
-      dhclient breth0
-    args:
-      chdir: "ovn-k"
-  - name: "configure gateway"
-    shell: >
-      ovn-k8s-overlay gateway-init
-      --cluster-ip-subnet="10.0.0.0/16"
-      --bridge-interface breth0
-      --physical-ip {{ ec2_private_ip_address }}
-      --node-name={{ ansible_hostname }}
-      --default-gw "172.31.64.1"
-    args:
-      chdir: "ovn-k"
-  - name: "demux gateway traffic"
-    shell: >
-      ovn-k8s-gateway-helper --physical-bridge=breth0 --physical-interface=eth0 --pidfile --detach
-    args:
-      chdir: "ovn-k"
+#  - name: ""
+#    shell: >
+#      ovn-k8s-util nics-to-bridge eth0 &&
+#      dhclient breth0
+#    args:
+#      chdir: "ovn-k"
+#  - name: "configure gateway"
+#    shell: >
+#      ovn-k8s-overlay gateway-init
+#      --cluster-ip-subnet="10.0.0.0/16"
+#      --bridge-interface breth0
+#      --physical-ip {{ ec2_private_ip_address }}
+#      --node-name={{ ansible_hostname }}
+#      --default-gw "172.31.64.1"
+#    args:
+#      chdir: "ovn-k"
+#  - name: "demux gateway traffic"
+#    async: 45
+#    poll: 0
+#    shell: >
+#      ovn-k8s-gateway-helper --physical-bridge=breth0 --physical-interface=eth0 --pidfile --detach
+#    args:
+#      chdir: "ovn-k"
 
   # install kubernetes
   - name: "check if kubernetes package has already been downloaded"
@@ -400,6 +406,7 @@
       --v=2
       --address=0.0.0.0
       --enable-server=true
+      --hostname-override={{ ansible_hostname }}
       --network-plugin=cni
       --cni-conf-dir=/etc/cni/net.d
       --cni-bin-dir=/opt/cni/bin > /home/ubuntu/kublet.log 2>&1"
