@@ -88,6 +88,10 @@
       local_ip: "10.0.{{ nid }}.254"
   - debug:
       msg: "Local IP = {{ local_ip }}"
+  - name: "create a couple of symlinks to Kubernetes stuff"
+    tags:
+    - symlinks
+    shell: rm -f kubectl && ln -s /home/ubuntu/kubernetes/client/bin/kubectl kubectl
 
 - hosts: tag_Name_kubernetes_master
   become: true
