@@ -266,11 +266,17 @@
   tasks:
   # first set some variables
   # http://docs.openvswitch.org/en/latest/intro/install/distributions/#debian
-  - set_fact:
+  - tags:
+    - k8s-install-slave
+    set_fact:
       central_conn_ip: "{{ groups['tag_Name_kubernetes_master'][0] }}"
-  - set_fact:
+  - tags:
+    - k8s-install-slave
+    set_fact:
       central_ip: "{{ hostvars[central_conn_ip]['ec2_private_ip_address'] }}"
-  - debug:
+  - tags:
+    - k8s-install-slave
+    debug:
       msg: "Central IP: {{ central_ip }}"
 
   # install docker
@@ -365,10 +371,43 @@
     when: kube_stats.stat.exists == False
   # client binaries: kubernetes/client/bin
   # server binaries: kubernetes/server/bin
+  - name: "download cni plugin"
+    tags:
+    - k8s-install-slave
+    shell: >
+      mkdir -p /opt/cni/bin && cd /opt/cni/bin &&
+      wget https://github.com/containernetworking/cni/releases/download/v0.2.0/cni-v0.2.0.tgz &&
+      tar xfz cni-v0.2.0.tgz &&
+      :
+  - name: "start kublet"
+    tags:
+    - k8s-install-slave
+    shell: >
+      start-stop-daemon
+      --start
+      --quiet
+      --make-pidfile
+      --pidfile /home/ubuntu/pid-kublet
+      --background
+      --oknodo
+      --startas /bin/bash
+      --
+      -c "exec /home/ubuntu/kubernetes/server/bin/kubelet
+      --api-servers=http://{{ central_ip }}:8080
+      --v=2
+      --address=0.0.0.0
+      --enable-server=true
+      --network-plugin=cni
+      --network-plugin-dir=/etc/cni/net.d > /home/ubuntu/kublet.log 2>&1"
+
+
 
 
 # todo
 # always show ouptut
 # starting daemons should have correct modified status
+# higher version of CNI plugin?
+# replace > with |, add \
+# divide using tags
 
 

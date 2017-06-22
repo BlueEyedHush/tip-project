@@ -1,4 +1,4 @@
 .idea/
 *.pyc
 *.retry
-deploy-aws/roles/mrlesmithjr.openvswitch/
+deploy-aws/roles/angstwad.docker_ubuntu/
