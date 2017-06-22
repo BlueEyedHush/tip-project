@@ -79,9 +79,13 @@
   tasks:
   - name: "install python 2"
     raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
-  - name: "generate local ip for OVN"
+  - name: "generate id for each node"
     set_fact:
-      local_ip: "10.0.0.{{ 255 |random(start=1,seed=inventory_hostname) }}"
+      nid: "{{ 255 |random(start=1,seed=inventory_hostname) }}"
+  - name: "set local ip for OVN"
+    set_fact:
+      subnet_ip: "10.0.{{ nid }}.0"
+      local_ip: "10.0.{{ nid }}.254"
   - debug:
       msg: "Local IP = {{ local_ip }}"
 
@@ -140,8 +144,8 @@
   - name: "initialize ovn master"
     shell: >
       ovn-k8s-overlay master-init
-      --cluster-ip-subnet="10.0.0.0/24"
-      --master-switch-subnet="10.0.1.0/24"
+      --cluster-ip-subnet="10.0.0.0/16"
+      --master-switch-subnet="{{ subnet_ip }}"
       --node-name="{{ ansible_hostname }}"
     args:
       chdir: "ovn-k"
@@ -202,7 +206,7 @@
       --startas /bin/bash
       --
       -c "exec /home/ubuntu/kubernetes/server/bin/kube-apiserver
-      --service-cluster-ip-range=10.0.0.0/24
+      --service-cluster-ip-range=10.0.0.0/16
       --address=0.0.0.0
       --etcd-servers=http://127.0.0.1:4001
       --storage-backend=etcd2
@@ -311,8 +315,8 @@
   - name: "initialize ovn minion"
     shell: >
       ovn-k8s-overlay minion-init
-      --cluster-ip-subnet="10.0.0.0/24"
-      --minion-switch-subnet="10.0.2.0/24"
+      --cluster-ip-subnet="10.0.0.0/16"
+      --minion-switch-subnet="{{ subnet_ip }}"
       --node-name={{ ansible_hostname }}
     args:
       chdir: "ovn-k"
@@ -325,7 +329,7 @@
   - name: "configure gateway"
     shell: >
       ovn-k8s-overlay gateway-init
-      --cluster-ip-subnet="10.0.0.0/24"
+      --cluster-ip-subnet="10.0.0.0/16"
       --bridge-interface breth0
       --physical-ip {{ ec2_private_ip_address }}
       --node-name={{ ansible_hostname }}
@@ -364,9 +368,7 @@
 
 
 # todo
-# different subnets for clients
 # always show ouptut
-# test if stuff is not running (using pid files and start-stop-daemon)
 # starting daemons should have correct modified status
 
 
