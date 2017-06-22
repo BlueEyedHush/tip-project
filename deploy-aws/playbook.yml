@@ -80,7 +80,7 @@
   vars_files:
   - global_vars.yml
   vars:
-    central_ip: "{{ ec2_ip_address }}"
+    central_ip: "{{ ec2_private_ip_address }}"
   tags:
   - deploy
   tasks:
@@ -215,7 +215,7 @@
       ovn-k8s-overlay gateway-init
       --cluster-ip-subnet="10.0.0.0/24"
       --bridge-interface breth0
-      --physical-ip {{ ec2_ip_address }}
+      --physical-ip {{ ec2_private_ip_address }}
       --node-name={{ ansible_hostname }}
       --default-gw "igw-aaca55cc"
     args:
