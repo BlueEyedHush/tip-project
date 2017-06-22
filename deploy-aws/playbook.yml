@@ -1,5 +1,9 @@
 ---
 
+#
+# Provision stuff on AWS
+#
+
 - name: "ensure security group exists"
   hosts: localhost
   connection: local
@@ -56,6 +60,9 @@
       key_name: kubernetes-cluster
       group: csg-kubernetes-cluster
 
+#
+# Deployment
+#
 
 - hosts: tag_Name_kubernetes_master:tag_Name_kubernetes_slave
   gather_facts: false
@@ -84,6 +91,12 @@
   tags:
   - deploy
   tasks:
+  # install docker
+  - name: "install docker"
+    include_role:
+      name: angstwad.docker_ubuntu
+
+  # install and configure networking
   # http://docs.openvswitch.org/en/latest/intro/install/distributions/#debian
   - name: "install openvswitch-switch"
     apt:
@@ -109,14 +122,6 @@
       external_ids:ovn-encap-type=geneve
   - name: "start OVN controller"
     shell: /usr/share/openvswitch/scripts/ovn-ctl start_controller
-  - name: "install docker"
-    include_role:
-      name: angstwad.docker_ubuntu
-  - name: "install kubernetes"
-    include_role:
-      name: gantsign.kubernetes
-    vars:
-      kubernetes_node_type: admin
   - name: "Set the k8s API server address in the OVS database"
     shell: ovs-vsctl set Open_vSwitch . external_ids:k8s-api-server="localhost:8080"
   - name: "clone ovn-kubernetes repository"
@@ -142,6 +147,16 @@
     args:
       chdir: "ovn-k"
 
+  # install kubernetes
+  - name: "install kubernetes"
+    include_role:
+      name: gantsign.kubernetes
+    vars:
+      kubernetes_node_type: admin
+
+
+
+
 - hosts: tag_Name_kubernetes_slave
   become: true
   become_method: sudo
@@ -150,6 +165,7 @@
   tags:
   - deploy
   tasks:
+  # first set some variables
   # http://docs.openvswitch.org/en/latest/intro/install/distributions/#debian
   - set_fact:
       central_conn_ip: "{{ groups['tag_Name_kubernetes_master'][0] }}"
@@ -157,6 +173,13 @@
       central_ip: "{{ hostvars[central_conn_ip]['ec2_private_ip_address'] }}"
   - debug:
       msg: "Central IP: {{ central_ip }}"
+
+  # install docker
+  - name: "install docker"
+    include_role:
+      name: angstwad.docker_ubuntu
+
+  # install and configure networking stuff
   - name: "install openvswitch-switch"
     apt:
       name: openvswitch-switch
@@ -178,14 +201,6 @@
       external_ids:ovn-encap-type=geneve
   - name: "start OVN controller"
     shell: /usr/share/openvswitch/scripts/ovn-ctl start_controller
-  - name: "install docker"
-    include_role:
-      name: angstwad.docker_ubuntu
-  - name: "install kubernetes"
-    include_role:
-      name: gantsign.kubernetes
-    vars:
-      kubernetes_node_type: worker
   - name: "Set the k8s API server address in the OVS database"
     shell: >
       ovs-vsctl set Open_vSwitch . external_ids:k8s-api-server={{ central_ip }}:8080
@@ -227,3 +242,11 @@
       ovn-k8s-gateway-helper --physical-bridge=breth0 --physical-interface=eth0 --pidfile --detach
     args:
       chdir: "ovn-k"
+
+  # install kubernetes
+  - name: "install kubernetes"
+    include_role:
+      name: gantsign.kubernetes
+    vars:
+      kubernetes_node_type: worker
+
