@@ -152,7 +152,9 @@
   tasks:
   # http://docs.openvswitch.org/en/latest/intro/install/distributions/#debian
   - set_fact:
-      central_ip: "{{ groups['tag_Name_kubernetes_master'][0] }}"
+      central_conn_ip: "{{ groups['tag_Name_kubernetes_master'][0] }}"
+  - set_fact:
+      central_ip: "{{ hostvars[central_conn_ip]['ec2_private_ip_address'] }}"
   - debug:
       msg: "Central IP: {{ central_ip }}"
   - name: "install openvswitch-switch"
