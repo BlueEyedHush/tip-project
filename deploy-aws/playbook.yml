@@ -47,7 +47,9 @@
       exact_count: 1
       image: "{{ per_region[aws_region]['ami'] }}"
       key_name: kubernetes-cluster
-      group: csg-kubernetes-cluster
+      groups:
+      - default
+      - csg-kubernetes-cluster
   - ec2:
       region: "{{ aws_region }}"
       instance_type: t2.nano
@@ -58,7 +60,9 @@
       exact_count: 2
       image: "{{ per_region[aws_region]['ami'] }}"
       key_name: kubernetes-cluster
-      group: csg-kubernetes-cluster
+      groups:
+      - default
+      - csg-kubernetes-cluster
 
 #
 # Deployment
@@ -148,14 +152,105 @@
       chdir: "ovn-k"
 
   # install kubernetes
-  - name: "install kubernetes"
-    include_role:
-      name: gantsign.kubernetes
-    vars:
-      kubernetes_node_type: admin
+  - name: "check if kubernetes package has already been downloaded"
+    tags:
+    - k8s-download
+    stat:
+      path: kubernetes/
+    register: kube_stats
+  - name: "download kubernetes packages"
+    tags:
+    - k8s-download
+    shell: >
+      rm -f kubernetes.tar.gz &&
+      rm -rf kubernetes/ &&
+      wget "https://github.com/kubernetes/kubernetes/releases/download/v1.6.6/kubernetes.tar.gz" &&
+      tar -xvzf kubernetes.tar.gz &&
+      cd kubernetes/cluster &&
+      KUBERNETES_SKIP_CONFIRM=True ./get-kube-binaries.sh &&
+      cd - &&
+      tar -xvzf kubernetes/server/kubernetes-server-linux-amd64.tar.gz &&
+      :
+    when: kube_stats.stat.exists == False
+  # client binaries: kubernetes/client/bin
+  # server binaries: kubernetes/server/bin
+  # https://github.com/openvswitch/ovn-kubernetes/blob/master/docs/INSTALL.K8S.md
+  - name: "create etcd container"
+    tags:
+    - k8s-install-master
+    shell: >
+      docker run
+      --net=host
+      --detach
+      gcr.io/google_containers/etcd:2.0.12
+      /usr/local/bin/etcd
+      --addr=127.0.0.1:4001
+      --bind-addr=0.0.0.0:4001
+      --data-dir=/var/etcd/data
 
+  - name: "run kube-apiserver"
+    tags:
+    - k8s-install-master
+    shell: >
+      start-stop-daemon
+      --start
+      --quiet
+      --make-pidfile
+      --pidfile /home/ubuntu/pid-apiserver
+      --background
+      --oknodo
+      --startas /bin/bash
+      --
+      -c "exec /home/ubuntu/kubernetes/server/bin/kube-apiserver
+      --service-cluster-ip-range=10.0.0.0/24
+      --address=0.0.0.0
+      --etcd-servers=http://127.0.0.1:4001
+      --storage-backend=etcd2
+      --v=2 > /home/ubuntu/apiserver.log 2>&1"
+    args:
+      chdir: "kubernetes/server/bin"
 
+  - name: "run kube-controller-manager"
+    async: 45
+    poll: 0
+    tags:
+    - k8s-install-master
+    shell: >
+      start-stop-daemon
+      --start
+      --quiet
+      --make-pidfile
+      --pidfile /home/ubuntu/pid-controlman
+      --background
+      --oknodo
+      --startas /bin/bash
+      --
+      -c "exec /home/ubuntu/kubernetes/server/bin/kube-controller-manager
+      --master=127.0.0.1:8080
+      --v=2 > /home/ubuntu/controlman.log 2>&1"
+    args:
+      chdir: "kubernetes/server/bin"
 
+  - name: "run kube-scheduler"
+    async: 45
+    poll: 0
+    tags:
+    - k8s-install-master
+    shell: >
+      start-stop-daemon
+      --start
+      --quiet
+      --make-pidfile
+      --pidfile /home/ubuntu/pid-sched
+      --background
+      --oknodo
+      --startas /bin/bash
+      --
+      -c "exec /home/ubuntu/kubernetes/server/bin/kube-scheduler
+      --master=127.0.0.1:8080
+      --v=2 > /home/ubuntu/sched.log 2>&1"
+    args:
+      chdir: "kubernetes/server/bin"
 
 - hosts: tag_Name_kubernetes_slave
   become: true
@@ -244,9 +339,34 @@
       chdir: "ovn-k"
 
   # install kubernetes
-  - name: "install kubernetes"
-    include_role:
-      name: gantsign.kubernetes
-    vars:
-      kubernetes_node_type: worker
+  - name: "check if kubernetes package has already been downloaded"
+    tags:
+    - k8s-download
+    stat:
+      path: kubernetes/
+    register: kube_stats
+  - name: "download kubernetes packages"
+    tags:
+    - k8s-download
+    shell: >
+      rm -f kubernetes.tar.gz &&
+      rm -rf kubernetes/ &&
+      wget "https://github.com/kubernetes/kubernetes/releases/download/v1.6.6/kubernetes.tar.gz" &&
+      tar -xvzf kubernetes.tar.gz &&
+      cd kubernetes/cluster &&
+      KUBERNETES_SKIP_CONFIRM=True ./get-kube-binaries.sh &&
+      cd - &&
+      tar -xvzf kubernetes/server/kubernetes-server-linux-amd64.tar.gz &&
+      :
+    when: kube_stats.stat.exists == False
+  # client binaries: kubernetes/client/bin
+  # server binaries: kubernetes/server/bin
+
+
+# todo
+# different subnets for clients
+# always show ouptut
+# test if stuff is not running (using pid files and start-stop-daemon)
+# starting daemons should have correct modified status
+
 
