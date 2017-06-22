@@ -84,7 +84,7 @@
       nid: "{{ 255 |random(start=1,seed=inventory_hostname) }}"
   - name: "set local ip for OVN"
     set_fact:
-      subnet_ip: "10.0.{{ nid }}.0"
+      subnet_ip: "10.0.{{ nid }}.0/16"
       local_ip: "10.0.{{ nid }}.254"
   - debug:
       msg: "Local IP = {{ local_ip }}"
@@ -256,6 +256,9 @@
     args:
       chdir: "kubernetes/server/bin"
 
+
+
+
 - hosts: tag_Name_kubernetes_slave
   become: true
   become_method: sudo
@@ -398,7 +401,8 @@
       --address=0.0.0.0
       --enable-server=true
       --network-plugin=cni
-      --network-plugin-dir=/etc/cni/net.d > /home/ubuntu/kublet.log 2>&1"
+      --cni-conf-dir=/etc/cni/net.d
+      --cni-bin-dir=/opt/cni/bin > /home/ubuntu/kublet.log 2>&1"
 
 
 
@@ -409,5 +413,6 @@
 # higher version of CNI plugin?
 # replace > with |, add \
 # divide using tags
-
+# set local ips as tags
+# fix problem with watcher startup
 
