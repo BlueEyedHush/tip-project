@@ -219,7 +219,7 @@
       --bridge-interface breth0
       --physical-ip {{ ec2_private_ip_address }}
       --node-name={{ ansible_hostname }}
-      --default-gw "igw-aaca55cc"
+      --default-gw "172.31.64.1"
     args:
       chdir: "ovn-k"
   - name: "demux gateway traffic"
