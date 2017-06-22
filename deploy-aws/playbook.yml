@@ -79,6 +79,8 @@
   become_method: sudo
   vars_files:
   - global_vars.yml
+  vars:
+    central_ip: "{{ ec2_ip_address }}"
   tags:
   - deploy
   tasks:
@@ -99,6 +101,14 @@
   # northd seems to be already up after package installation, but better safe than sorry
   - name: "start northd"
     shell: "/usr/share/openvswitch/scripts/ovn-ctl start_northd"
+  - name: "add some entries to db"
+    shell: >
+      ovs-vsctl set Open_vSwitch . external_ids:ovn-remote="tcp:{{ central_ip }}:6642"
+      external_ids:ovn-nb="tcp:{{ central_ip }}:6641"
+      external_ids:ovn-encap-ip={{ local_ip }}
+      external_ids:ovn-encap-type=geneve
+  - name: "start OVN controller"
+    shell: /usr/share/openvswitch/scripts/ovn-ctl start_controller
   - name: "install docker"
     include_role:
       name: angstwad.docker_ubuntu
@@ -108,7 +118,7 @@
     vars:
       kubernetes_node_type: admin
   - name: "Set the k8s API server address in the OVS database"
-    shell: ovs-vsctl set Open_vSwitch . external_ids:k8s-api-server="127.0.0.1:8080"
+    shell: ovs-vsctl set Open_vSwitch . external_ids:k8s-api-server="localhost:8080"
   - name: "clone ovn-kubernetes repository"
     git:
       repo: "https://github.com/openvswitch/ovn-kubernetes"
@@ -158,7 +168,7 @@
       name: ovn-host
       state: present
   # https://github.com/openvswitch/ovn-kubernetes#system-initialization
-  - name: "configure host OVN"
+  - name: "add some entries to db"
     shell: >
       ovs-vsctl set Open_vSwitch . external_ids:ovn-remote="tcp:{{ central_ip }}:6642"
       external_ids:ovn-nb="tcp:{{ central_ip }}:6641"
