@@ -85,9 +85,6 @@
   - name: "set local ip for OVN"
     set_fact:
       subnet_ip: "10.0.{{ nid }}.0/24"
-      local_ip: "10.0.{{ nid }}.254"
-  - debug:
-      msg: "Local IP = {{ local_ip }}"
   - name: "create a couple of symlinks to Kubernetes stuff"
     tags:
     - symlinks
@@ -130,7 +127,7 @@
     shell: >
       ovs-vsctl set Open_vSwitch . external_ids:ovn-remote="tcp:{{ central_ip }}:6642"
       external_ids:ovn-nb="tcp:{{ central_ip }}:6641"
-      external_ids:ovn-encap-ip={{ local_ip }}
+      external_ids:ovn-encap-ip={{ ec2_private_ip_address }}
       external_ids:ovn-encap-type=geneve
   - name: "start OVN controller"
     shell: /usr/share/openvswitch/scripts/ovn-ctl start_controller
@@ -313,7 +310,7 @@
     shell: >
       ovs-vsctl set Open_vSwitch . external_ids:ovn-remote="tcp:{{ central_ip }}:6642"
       external_ids:ovn-nb="tcp:{{ central_ip }}:6641"
-      external_ids:ovn-encap-ip={{ local_ip }}
+      external_ids:ovn-encap-ip={{ ec2_private_ip_address }}
       external_ids:ovn-encap-type=geneve
   - name: "start OVN controller"
     shell: /usr/share/openvswitch/scripts/ovn-ctl start_controller
