@@ -12,6 +12,7 @@
   - global_vars.yml
   tags:
   - provision
+  - security-group
   tasks:
   - ec2_group:
       name: csg-kubernetes-cluster
@@ -19,13 +20,14 @@
       region: "{{ aws_region }}"
       state: present
       rules:
-      - proto: tcp
-        from_port: 22
-        to_port: 22
+      - proto: all
+        from_port: 0
+        to_port: 65535
         cidr_ip: 0.0.0.0/0
-      - proto: icmp
-        from_port: 8 # icmp type, -1 = any type
-        to_port:  -1 # icmp subtype, -1 = any subtype
+      rules_egress:
+      - proto: all
+        from_port: 0
+        to_port: 65535
         cidr_ip: 0.0.0.0/0
 
 
